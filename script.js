@@ -18,7 +18,6 @@ function displayTrackInfo(track) {
 }
 
 async function recommend(df, songName, artistName, nRecs, distance) {
-    //const relevantColumns = ['popularity', 'danceability', 'energy', 'loudness', 'mode', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'];
     const relevantColumns = ['danceability', 'energy', 'loudness', 'mode', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence'];
     const songSearchArr = df.filter(song => song.track_name === songName && song.artists === artistName);
 
@@ -35,11 +34,18 @@ async function recommend(df, songName, artistName, nRecs, distance) {
     let distances;
 
     if (distance === 'cosine') {
-      distances = df.map(song => 1 - cosineSimilarity(songSearch, relevantColumns.map(col => song[col])));
+        distances = df.map(song => 1 - cosineSimilarity(songSearch, relevantColumns.map(col => song[col])));
     } else if (distance === 'euclidean') {
-      distances = df.map(song => euclideanDistance(songSearch, relevantColumns.map(col => song[col])));
-    } else {
-      return "Invalid distance metric. Choose 'cosine' or 'euclidean'.";
+        distances = df.map(song => euclideanDistance(songSearch, relevantColumns.map(col => song[col])));
+    } else if (distance === 'manhattan') {
+        distances = df.map(song => manhattanDistance(songSearch, relevantColumns.map(col => song[col])));
+    } else if (distance === 'l3') {
+        distances = df.map(song => l3Distance(songSearch, relevantColumns.map(col => song[col])));
+    } else if (distance === 'l4') {
+        distances = df.map(song => l4Distance(songSearch, relevantColumns.map(col => song[col])));
+    }
+    else {
+        return "Invalid distance metric. Choose 'cosine', 'euclidean', 'manhattan', 'l3', or 'l4'.";
     }
 
     let songDistances = songNames.map((name, index) => [name, songArtists[index], distances[index]]);
@@ -61,7 +67,7 @@ async function recommend(df, songName, artistName, nRecs, distance) {
     return recommendedSongs;
 }
 
-function displayRecommendations(recommendations, metric){
+function displayRecommendations(recommendations, metric) {
     const recommendationsContainer = document.getElementById('recommendations');
     recommendationsContainer.innerHTML = '';
 
@@ -74,26 +80,26 @@ function displayRecommendations(recommendations, metric){
         recommendations.forEach(song => {
             const trackName = song[0];
             const artistName = song[1];
-            
+
             const trackData = findTrackData(trackName, artistName);
-            
+
             const box = document.createElement('div');
             box.className = 'recommendation-box';
-            
+
             const songInfo = document.createElement('div');
             songInfo.className = 'song-info';
-            
+
             const songNameEl = document.createElement('h3');
             songNameEl.textContent = trackName;
-            
+
             const artistNameEl = document.createElement('p');
             artistNameEl.textContent = artistName;
-            
+
             songInfo.appendChild(songNameEl);
             songInfo.appendChild(artistNameEl);
-            
+
             box.appendChild(songInfo);
-            
+
             if (trackData && trackData.track_id) {
                 const embedContainer = document.createElement('div');
                 embedContainer.className = 'spotify-embed';
@@ -108,15 +114,15 @@ function displayRecommendations(recommendations, metric){
                 `;
                 box.appendChild(embedContainer);
             }
-            
+
             recommendationsContainer.appendChild(box);
         });
     }
 }
 
 function findTrackData(trackName, artistName) {
-    return trackData.find(track => 
-        track.track_name === trackName && 
+    return trackData.find(track =>
+        track.track_name === trackName &&
         track.artists === artistName
     );
 }
@@ -127,8 +133,7 @@ fetch(url)
         Papa.parse(csvText, {
             header: true,
             complete: function (results) {
-                // Filter for tracks with popularity > 50
-                trackData = results.data.filter(track => 
+                trackData = results.data.filter(track =>
                     track.popularity && parseFloat(track.popularity) > 50
                 );
 
@@ -171,66 +176,57 @@ function autocompleteTracks() {
         return;
     }
 
-    // Find tracks that match by track name, artist name, or combined format
     const results = trackData.filter(track => {
         if (!track || !track.track_name || !track.artists) return false;
-        
+
         const trackNameLower = track.track_name.toLowerCase();
         const artistNameLower = track.artists.toLowerCase();
         const combinedLower = `${trackNameLower} - ${artistNameLower}`;
-        
-        return trackNameLower.includes(searchTerm) || 
-               artistNameLower.includes(searchTerm) ||
-               combinedLower.includes(searchTerm);
+
+        return trackNameLower.includes(searchTerm) ||
+            artistNameLower.includes(searchTerm) ||
+            combinedLower.includes(searchTerm);
     });
 
-    // Sort results to prioritize more exact matches
     results.sort((a, b) => {
         const aTrackMatch = a.track_name.toLowerCase().includes(searchTerm);
         const aArtistMatch = a.artists.toLowerCase().includes(searchTerm);
         const bTrackMatch = b.track_name.toLowerCase().includes(searchTerm);
         const bArtistMatch = b.artists.toLowerCase().includes(searchTerm);
-        
-        // Prioritize exact track matches
+
         if (a.track_name.toLowerCase() === searchTerm && b.track_name.toLowerCase() !== searchTerm) return -1;
         if (b.track_name.toLowerCase() === searchTerm && a.track_name.toLowerCase() !== searchTerm) return 1;
-        
-        // Then prioritize exact artist matches
+
         if (a.artists.toLowerCase() === searchTerm && b.artists.toLowerCase() !== searchTerm) return -1;
         if (b.artists.toLowerCase() === searchTerm && a.artists.toLowerCase() !== searchTerm) return 1;
-        
-        // Then prioritize matches on both track and artist
+
         if (aTrackMatch && aArtistMatch && !(bTrackMatch && bArtistMatch)) return -1;
         if (bTrackMatch && bArtistMatch && !(aTrackMatch && aArtistMatch)) return 1;
-        
+
         return 0;
     });
 
     if (results.length > 0) {
-        // Display up to 8 results
         results.slice(0, 8).forEach(track => {
             const resultDiv = document.createElement('div');
             resultDiv.className = 'autocomplete-result';
             resultDiv.textContent = `${track.track_name} - ${track.artists}`;
-            
+
             resultDiv.addEventListener('click', () => {
-                // When a result is selected, store both track name and artist name
                 const searchInput = document.getElementById('search-input');
                 searchInput.value = `${track.track_name} - ${track.artists}`;
                 searchInput.dataset.trackName = track.track_name;
                 searchInput.dataset.artistName = track.artists;
                 searchResultsContainer.style.display = 'none';
-                
-                // Automatically perform search with the selected track
+
                 performSearch();
             });
-            
+
             searchResultsContainer.appendChild(resultDiv);
         });
-        
+
         searchResultsContainer.style.display = 'block';
     } else {
-        // Show "No results found" message
         const noResultsDiv = document.createElement('div');
         noResultsDiv.className = 'no-results';
         noResultsDiv.textContent = 'No matching tracks found';
@@ -242,47 +238,42 @@ function autocompleteTracks() {
 function performSearch() {
     const searchInput = document.getElementById('search-input');
     const distanceMetric = document.getElementById('distance-selector').value;
-    
+
     let selectedTrack = null;
-    
-    // First check if we have track and artist information from autocomplete
+
     if (searchInput.dataset.trackName && searchInput.dataset.artistName) {
-        selectedTrack = trackData.find(track => 
-            track.track_name === searchInput.dataset.trackName && 
+        selectedTrack = trackData.find(track =>
+            track.track_name === searchInput.dataset.trackName &&
             track.artists === searchInput.dataset.artistName
         );
     }
-    
-    // If no track found from autocomplete data, try parsing the input
+
     if (!selectedTrack) {
         const inputValue = searchInput.value.trim();
-        
-        // Try "track - artist" format
+
         if (inputValue.includes(' - ')) {
             const parts = inputValue.split(' - ');
             if (parts.length === 2) {
                 const trackName = parts[0].trim();
                 const artistName = parts[1].trim();
-                
-                selectedTrack = trackData.find(track => 
-                    track.track_name.toLowerCase() === trackName.toLowerCase() && 
+
+                selectedTrack = trackData.find(track =>
+                    track.track_name.toLowerCase() === trackName.toLowerCase() &&
                     track.artists.toLowerCase() === artistName.toLowerCase()
                 );
             }
         }
-        
-        // If still no match, try just track name
+
         if (!selectedTrack) {
             const lowerInput = inputValue.toLowerCase();
-            selectedTrack = trackData.find(track => 
+            selectedTrack = trackData.find(track =>
                 track.track_name.toLowerCase() === lowerInput
             );
         }
-        
-        // Finally, try artist name
+
         if (!selectedTrack) {
             const lowerInput = inputValue.toLowerCase();
-            selectedTrack = trackData.find(track => 
+            selectedTrack = trackData.find(track =>
                 track.artists.toLowerCase() === lowerInput
             );
         }
@@ -334,3 +325,29 @@ function euclideanDistance(vecA, vecB) {
 
     return Math.sqrt(sumOfSquares);
 }
+
+function manhattanDistance(vecA, vecB) {
+    let sum = 0;
+    for (let i = 0; i < vecA.length; i++) {
+        sum += Math.abs(vecA[i] - vecB[i]);
+    }
+    return sum;
+}
+
+function l3Distance(vecA, vecB) {
+    let sum = 0;
+    for (let i = 0; i < vecA.length; i++) {
+        sum += Math.pow(Math.abs(vecA[i] - vecB[i]), 3);
+    }
+    return Math.pow(sum, 1 / 3);
+}
+
+function l4Distance(vecA, vecB) {
+    let sum = 0;
+    for (let i = 0; i < vecA.length; i++) {
+        sum += Math.pow(Math.abs(vecA[i] - vecB[i]), 4);
+    }
+    return Math.pow(sum, 1 / 4);
+}
+
+document.getElementById('distance-selector').addEventListener('change', performSearch);

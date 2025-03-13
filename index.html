@@ -1,40 +1,48 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-  <title>Music Recommendations</title>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ml-distance@4.0.1/lib-esm/distances.min.js"></script>
-  <link rel="stylesheet" href="styles.css">
+    <title>Music Recommendations</title>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ml-distance@4.0.1/lib-esm/distances.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
-  <div class="container">
-    <header>
-      <h1>Music Recommendations</h1>
-      <p>Find your next favorite song</p>
-    </header>
-    
-    <div class="search-container">
-      <input type="text" id="search-input" placeholder="Search for a song..." oninput="autocompleteTracks()">
-      <div class="metric-selector">
-        <select id="distance-selector">
-          <option value="euclidean">Euclidean Distance</option>
-          <option value="cosine">Cosine Similarity</option>
-        </select>
-      </div>
-      <button id="search-button" onclick="performSearch()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-      </button>
-      <div id="search-results"></div>
+    <div class="container">
+        <header>
+            <h1>Music Recommendations</h1>
+            <p>Find your next favorite song</p>
+        </header>
+
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Search for a song..."
+                oninput="autocompleteTracks()">
+            <div class="metric-selector">
+                <select id="distance-selector">
+                    <option value="euclidean">Euclidean Distance</option>
+                    <option value="cosine">Cosine Similarity</option>
+                    <option value="manhattan">Manhattan Distance</option>
+                    <option value="l3">L3 Distance</option>
+                    <option value="l4">L4 Distance</option>
+                </select>
+            </div>
+            <button id="search-button" onclick="performSearch()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </button>
+            <div id="search-results"></div>
+        </div>
+
+        <div id="track-info"></div>
+
+        <div id="recommendations"></div>
     </div>
 
-    <div id="track-info"></div>
-
-    <div id="recommendations"></div>
-  </div>
-
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
+
 </html>

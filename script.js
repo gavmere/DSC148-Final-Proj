@@ -18,7 +18,8 @@ function displayTrackInfo(track) {
 }
 
 async function recommend(df, songName, artistName, nRecs, distance) {
-    const relevantColumns = ['popularity', 'danceability', 'energy', 'loudness', 'mode', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'];
+    //const relevantColumns = ['popularity', 'danceability', 'energy', 'loudness', 'mode', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'];
+    const relevantColumns = ['danceability', 'energy', 'loudness', 'mode', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence'];
     const songSearchArr = df.filter(song => song.track_name === songName && song.artists === artistName);
 
     if (songSearchArr.length === 0) {
@@ -126,14 +127,17 @@ fetch(url)
         Papa.parse(csvText, {
             header: true,
             complete: function (results) {
-                trackData = results.data;
+                // Filter for tracks with popularity > 50
+                trackData = results.data.filter(track => 
+                    track.popularity && parseFloat(track.popularity) > 50
+                );
 
                 if (trackData && trackData.length > 0) {
                     displayTrackInfo(trackData[0]);
                 } else {
                     const trackInfoContainer = document.getElementById('track-info');
                     const errorMessage = document.createElement('p');
-                    errorMessage.textContent = "No track data found.";
+                    errorMessage.textContent = "No track data with popularity over 50 found.";
                     errorMessage.style.color = "red";
                     trackInfoContainer.appendChild(errorMessage);
                 }
@@ -158,7 +162,7 @@ fetch(url)
     });
 
 function autocompleteTracks() {
-    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+    const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
     const searchResultsContainer = document.getElementById('search-results');
     searchResultsContainer.innerHTML = '';
 
@@ -167,33 +171,122 @@ function autocompleteTracks() {
         return;
     }
 
+    // Find tracks that match by track name, artist name, or combined format
     const results = trackData.filter(track => {
-        if (track && track.track_name) {
-            return track.track_name.toLowerCase().includes(searchTerm);
-        }
-        return false;
+        if (!track || !track.track_name || !track.artists) return false;
+        
+        const trackNameLower = track.track_name.toLowerCase();
+        const artistNameLower = track.artists.toLowerCase();
+        const combinedLower = `${trackNameLower} - ${artistNameLower}`;
+        
+        return trackNameLower.includes(searchTerm) || 
+               artistNameLower.includes(searchTerm) ||
+               combinedLower.includes(searchTerm);
+    });
+
+    // Sort results to prioritize more exact matches
+    results.sort((a, b) => {
+        const aTrackMatch = a.track_name.toLowerCase().includes(searchTerm);
+        const aArtistMatch = a.artists.toLowerCase().includes(searchTerm);
+        const bTrackMatch = b.track_name.toLowerCase().includes(searchTerm);
+        const bArtistMatch = b.artists.toLowerCase().includes(searchTerm);
+        
+        // Prioritize exact track matches
+        if (a.track_name.toLowerCase() === searchTerm && b.track_name.toLowerCase() !== searchTerm) return -1;
+        if (b.track_name.toLowerCase() === searchTerm && a.track_name.toLowerCase() !== searchTerm) return 1;
+        
+        // Then prioritize exact artist matches
+        if (a.artists.toLowerCase() === searchTerm && b.artists.toLowerCase() !== searchTerm) return -1;
+        if (b.artists.toLowerCase() === searchTerm && a.artists.toLowerCase() !== searchTerm) return 1;
+        
+        // Then prioritize matches on both track and artist
+        if (aTrackMatch && aArtistMatch && !(bTrackMatch && bArtistMatch)) return -1;
+        if (bTrackMatch && bArtistMatch && !(aTrackMatch && aArtistMatch)) return 1;
+        
+        return 0;
     });
 
     if (results.length > 0) {
-        results.slice(0, 5).forEach(track => {
+        // Display up to 8 results
+        results.slice(0, 8).forEach(track => {
             const resultDiv = document.createElement('div');
+            resultDiv.className = 'autocomplete-result';
             resultDiv.textContent = `${track.track_name} - ${track.artists}`;
+            
             resultDiv.addEventListener('click', () => {
-                document.getElementById('search-input').value = track.track_name;
+                // When a result is selected, store both track name and artist name
+                const searchInput = document.getElementById('search-input');
+                searchInput.value = `${track.track_name} - ${track.artists}`;
+                searchInput.dataset.trackName = track.track_name;
+                searchInput.dataset.artistName = track.artists;
                 searchResultsContainer.style.display = 'none';
+                
+                // Automatically perform search with the selected track
+                performSearch();
             });
+            
             searchResultsContainer.appendChild(resultDiv);
         });
+        
         searchResultsContainer.style.display = 'block';
     } else {
-        searchResultsContainer.style.display = 'none';
+        // Show "No results found" message
+        const noResultsDiv = document.createElement('div');
+        noResultsDiv.className = 'no-results';
+        noResultsDiv.textContent = 'No matching tracks found';
+        searchResultsContainer.appendChild(noResultsDiv);
+        searchResultsContainer.style.display = 'block';
     }
 }
 
 function performSearch() {
-    const searchTerm = document.getElementById('search-input').value.toLowerCase();
-    const selectedTrack = trackData.find(track => track.track_name.toLowerCase() === searchTerm);
+    const searchInput = document.getElementById('search-input');
     const distanceMetric = document.getElementById('distance-selector').value;
+    
+    let selectedTrack = null;
+    
+    // First check if we have track and artist information from autocomplete
+    if (searchInput.dataset.trackName && searchInput.dataset.artistName) {
+        selectedTrack = trackData.find(track => 
+            track.track_name === searchInput.dataset.trackName && 
+            track.artists === searchInput.dataset.artistName
+        );
+    }
+    
+    // If no track found from autocomplete data, try parsing the input
+    if (!selectedTrack) {
+        const inputValue = searchInput.value.trim();
+        
+        // Try "track - artist" format
+        if (inputValue.includes(' - ')) {
+            const parts = inputValue.split(' - ');
+            if (parts.length === 2) {
+                const trackName = parts[0].trim();
+                const artistName = parts[1].trim();
+                
+                selectedTrack = trackData.find(track => 
+                    track.track_name.toLowerCase() === trackName.toLowerCase() && 
+                    track.artists.toLowerCase() === artistName.toLowerCase()
+                );
+            }
+        }
+        
+        // If still no match, try just track name
+        if (!selectedTrack) {
+            const lowerInput = inputValue.toLowerCase();
+            selectedTrack = trackData.find(track => 
+                track.track_name.toLowerCase() === lowerInput
+            );
+        }
+        
+        // Finally, try artist name
+        if (!selectedTrack) {
+            const lowerInput = inputValue.toLowerCase();
+            selectedTrack = trackData.find(track => 
+                track.artists.toLowerCase() === lowerInput
+            );
+        }
+    }
 
     if (selectedTrack) {
         displayTrackInfo(selectedTrack);

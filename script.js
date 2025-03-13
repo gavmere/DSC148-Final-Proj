@@ -212,6 +212,9 @@ fetch(url)
         Papa.parse(csvText, {
             header: true,
             complete: function (results) {
+                trackData = results.data.filter(track =>
+                    track.popularity && parseFloat(track.popularity) > 50
+                );
 
                 if (trackData && trackData.length > 0) {
                     displayTrackInfo(trackData[0]);

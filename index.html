@@ -34,6 +34,27 @@
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
             </button>
+            <div class="columns-selector">
+              <button id="columns-selector-button" type="button">
+                  Features
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+              </button>
+              <div id="columns-dropdown" class="columns-dropdown">
+                  <div class="dropdown-header">
+                      <span>Select Features for Comparison</span>
+                      <button id="select-all-columns">Select All</button>
+                  </div>
+                  <div class="columns-list">
+                      <!-- Checkboxes will be added here dynamically -->
+                  </div>
+                  <div class="dropdown-footer">
+                      <button id="apply-columns">Apply</button>
+                  </div>
+              </div>
+          </div>
+          
             <div id="search-results"></div>
         </div>
 

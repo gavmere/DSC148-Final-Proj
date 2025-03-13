@@ -1,5 +1,73 @@
 const url = 'spotify_tracks_dataset.csv';
 let trackData = [];
+let selectedColumns = ['danceability', 'energy', 'loudness', 'mode', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence'];
+const availableColumns = ['popularity', 'duration_ms', 'explicit', 'danceability', 'energy', 'key', 'loudness', 'mode', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo', 'time_signature'];
+
+function initColumnSelector() {
+    const columnsList = document.querySelector('.columns-list');
+    columnsList.innerHTML = '';
+    
+    availableColumns.forEach(column => {
+        const checkboxDiv = document.createElement('div');
+        checkboxDiv.className = 'column-checkbox';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `column-${column}`;
+        checkbox.value = column;
+        checkbox.checked = selectedColumns.includes(column);
+        
+        const label = document.createElement('label');
+        label.htmlFor = `column-${column}`;
+        label.textContent = column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        
+        checkboxDiv.appendChild(checkbox);
+        checkboxDiv.appendChild(label);
+        columnsList.appendChild(checkboxDiv);
+    });
+    
+    document.getElementById('columns-selector-button').addEventListener('click', (event) => {
+        event.stopPropagation();
+        document.getElementById('columns-dropdown').classList.toggle('show');
+    });
+    
+    document.getElementById('select-all-columns').addEventListener('click', () => {
+        const checkboxes = document.querySelectorAll('.column-checkbox input');
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = !allChecked;
+        });
+    });
+    
+    document.getElementById('apply-columns').addEventListener('click', () => {
+        const checkboxes = document.querySelectorAll('.column-checkbox input:checked');
+        selectedColumns = Array.from(checkboxes).map(cb => cb.value);
+        
+        if (selectedColumns.length === 0) {
+            alert('Please select at least one feature for comparison.');
+            return;
+        }
+        
+        document.getElementById('columns-dropdown').classList.remove('show');
+        
+        // Re-run search if there's a selected track
+        if (document.getElementById('search-input').dataset.trackName) {
+            performSearch();
+        }
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (event) => {
+        const dropdown = document.getElementById('columns-dropdown');
+        const button = document.getElementById('columns-selector-button');
+        
+        if (!dropdown.contains(event.target) && event.target !== button) {
+            dropdown.classList.remove('show');
+        }
+    });
+}
+
 
 function displayTrackInfo(track) {
     const trackInfoContainer = document.getElementById('track-info');
@@ -18,37 +86,48 @@ function displayTrackInfo(track) {
 }
 
 async function recommend(df, songName, artistName, nRecs, distance) {
-    const relevantColumns = ['danceability', 'energy', 'loudness', 'mode', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence'];
+    if (selectedColumns.length === 0) {
+        return "Please select at least one feature for comparison.";
+    }
+    
     const songSearchArr = df.filter(song => song.track_name === songName && song.artists === artistName);
 
     if (songSearchArr.length === 0) {
         return "Song not found in the dataframe.";
     }
 
-    const songSearch = relevantColumns.map(col => songSearchArr[0][col]);
-    const songMatrix = df.map(song => relevantColumns.map(col => song[col]));
+    const songSearch = selectedColumns.map(col => {
+        const value = songSearchArr[0][col];
+        return isNaN(parseFloat(value)) ? value : parseFloat(value);
+    });
+
     const songNames = df.map(song => song.track_name);
     const songArtists = df.map(song => song.artists);
-    const targetIndex = songNames.indexOf(songName);
 
-    let distances;
-
-    if (distance === 'cosine') {
-        distances = df.map(song => 1 - cosineSimilarity(songSearch, relevantColumns.map(col => song[col])));
-    } else if (distance === 'euclidean') {
-        distances = df.map(song => euclideanDistance(songSearch, relevantColumns.map(col => song[col])));
-    } else if (distance === 'manhattan') {
-        distances = df.map(song => manhattanDistance(songSearch, relevantColumns.map(col => song[col])));
-    } else if (distance === 'l3') {
-        distances = df.map(song => l3Distance(songSearch, relevantColumns.map(col => song[col])));
-    } else if (distance === 'l4') {
-        distances = df.map(song => l4Distance(songSearch, relevantColumns.map(col => song[col])));
-    }
-    else {
-        return "Invalid distance metric. Choose 'cosine', 'euclidean', 'manhattan', 'l3', or 'l4'.";
-    }
+    const distances = df.map(song => {
+        const features = selectedColumns.map(col => {
+            const value = song[col];
+            return isNaN(parseFloat(value)) ? value : parseFloat(value);
+        });
+        
+        switch(distance) {
+            case 'cosine':
+                return 1 - cosineSimilarity(songSearch, features);
+            case 'euclidean':
+                return euclideanDistance(songSearch, features);
+            case 'manhattan':
+                return manhattanDistance(songSearch, features);
+            case 'l3':
+                return l3Distance(songSearch, features);
+            case 'l4':
+                return l4Distance(songSearch, features);
+            default:
+                return Infinity;
+        }
+    });
 
     let songDistances = songNames.map((name, index) => [name, songArtists[index], distances[index]]);
+    
     songDistances = songDistances.filter((song, index) => !(song[0] === songName && song[1] === artistName));
 
     const uniqueSongs = [];
@@ -63,9 +142,9 @@ async function recommend(df, songName, artistName, nRecs, distance) {
     }
 
     uniqueSongs.sort((a, b) => a[2] - b[2]);
-    const recommendedSongs = uniqueSongs.slice(0, nRecs);
-    return recommendedSongs;
+    return uniqueSongs.slice(0, nRecs);
 }
+
 
 function displayRecommendations(recommendations, metric) {
     const recommendationsContainer = document.getElementById('recommendations');
@@ -139,6 +218,7 @@ fetch(url)
 
                 if (trackData && trackData.length > 0) {
                     displayTrackInfo(trackData[0]);
+                    initColumnSelector(); // Initialize column selector
                 } else {
                     const trackInfoContainer = document.getElementById('track-info');
                     const errorMessage = document.createElement('p');
@@ -165,6 +245,7 @@ fetch(url)
         const trackInfoContainer = document.getElementById('track-info');
         trackInfoContainer.appendChild(errorMessage);
     });
+
 
 function autocompleteTracks() {
     const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();

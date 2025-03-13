@@ -71,21 +71,53 @@ function displayRecommendations(recommendations, metric){
         recommendationsContainer.appendChild(errorMessage);
     } else if (recommendations) {
         recommendations.forEach(song => {
+            const trackName = song[0];
+            const artistName = song[1];
+            
+            const trackData = findTrackData(trackName, artistName);
+            
             const box = document.createElement('div');
             box.className = 'recommendation-box';
             
-            const songName = document.createElement('h3');
-            songName.textContent = song[0];
+            const songInfo = document.createElement('div');
+            songInfo.className = 'song-info';
             
-            const artistName = document.createElement('p');
-            artistName.textContent = song[1];
+            const songNameEl = document.createElement('h3');
+            songNameEl.textContent = trackName;
             
-            box.appendChild(songName);
-            box.appendChild(artistName);
+            const artistNameEl = document.createElement('p');
+            artistNameEl.textContent = artistName;
+            
+            songInfo.appendChild(songNameEl);
+            songInfo.appendChild(artistNameEl);
+            
+            box.appendChild(songInfo);
+            
+            if (trackData && trackData.track_id) {
+                const embedContainer = document.createElement('div');
+                embedContainer.className = 'spotify-embed';
+                embedContainer.innerHTML = `
+                    <iframe style="border-radius:12px" 
+                        src="https://open.spotify.com/embed/track/${trackData.track_id}?utm_source=generator" 
+                        width="100%" height="152" frameBorder="0" 
+                        allowfullscreen="" 
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                        loading="lazy">
+                    </iframe>
+                `;
+                box.appendChild(embedContainer);
+            }
             
             recommendationsContainer.appendChild(box);
         });
     }
+}
+
+function findTrackData(trackName, artistName) {
+    return trackData.find(track => 
+        track.track_name === trackName && 
+        track.artists === artistName
+    );
 }
 
 fetch(url)
@@ -165,7 +197,7 @@ function performSearch() {
 
     if (selectedTrack) {
         displayTrackInfo(selectedTrack);
-        recommend(trackData, selectedTrack.track_name, selectedTrack.artists, 5, distanceMetric)
+        recommend(trackData, selectedTrack.track_name, selectedTrack.artists, 6, distanceMetric)
             .then(recommendations => {
                 displayRecommendations(recommendations, distanceMetric);
             })
